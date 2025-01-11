@@ -1,44 +1,56 @@
-from scapy.all import sniff
-from scapy.layers.inet import IP, TCP, UDP
+from scapy.all import sniff, IP, TCP, UDP, ICMP
 
 def analyze_packet(packet):
     """
-    Function to analyze and display packet details.
+    Callback function to process each captured packet.
     """
+    print("\n=== Packet Captured ===")
+
     # Check if the packet has an IP layer
-    if packet.haslayer(IP):
-        ip_src = packet[IP].src
-        ip_dst = packet[IP].dst
-        protocol = packet[IP].proto
-        print(f"Source IP: {ip_src}, Destination IP: {ip_dst}, Protocol: {protocol}")
+    if IP in packet:
+        ip_layer = packet[IP]
+        print(f"Source IP: {ip_layer.src}")
+        print(f"Destination IP: {ip_layer.dst}")
+        print(f"Protocol: {ip_layer.proto}")
 
-        # Further analyze if it's a TCP packet
-        if packet.haslayer(TCP):
-            tcp_sport = packet[TCP].sport
-            tcp_dport = packet[TCP].dport
-            print(f"TCP Source Port: {tcp_sport}, TCP Destination Port: {tcp_dport}")
+        # Check for transport layer protocols
+        if TCP in packet:
+            print("Transport Protocol: TCP")
+            tcp_layer = packet[TCP]
+            print(f"Source Port: {tcp_layer.sport}")
+            print(f"Destination Port: {tcp_layer.dport}")
+        elif UDP in packet:
+            print("Transport Protocol: UDP")
+            udp_layer = packet[UDP]
+            print(f"Source Port: {udp_layer.sport}")
+            print(f"Destination Port: {udp_layer.dport}")
+        elif ICMP in packet:
+            print("Transport Protocol: ICMP")
+    else:
+        print("Non-IP packet captured.")
 
-        # Further analyze if it's a UDP packet
-        elif packet.haslayer(UDP):
-            udp_sport = packet[UDP].sport
-            udp_dport = packet[UDP].dport
-            print(f"UDP Source Port: {udp_sport}, UDP Destination Port: {udp_dport}")
+    # Print raw payload (if any)
+    if packet.payload:
+        print(f"Payload: {bytes(packet.payload).hex()}")
 
-        # Show payload data (if available)
-        if packet.haslayer('Raw'):
-            raw_data = packet['Raw'].load
-            print(f"Payload (Raw Data): {raw_data}")
-
-    print("-" * 50)
-
-def start_sniffing(interface="eth0"):
+def start_sniffer(interface=None):
     """
-    Start sniffing packets on the specified network interface.
+    Start the packet sniffer on a specified interface.
     """
-    print(f"Starting packet capture on {interface}...")
-    sniff(iface=interface, prn=analyze_packet, store=0)
+    print("Starting packet sniffer...")
+    sniff(iface=interface, prn=analyze_packet, store=False)
 
 if __name__ == "__main__":
-    # Change the interface name as needed
-    interface = input("Enter the network interface to sniff on (e.g., eth0 or wlan0): ")
-    start_sniffing(interface)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Simple Packet Sniffer Tool")
+    parser.add_argument("-i", "--interface", help="Network interface to sniff on (default: all interfaces)", default=None)
+    args = parser.parse_args()
+
+    try:
+        start_sniffer(interface=args.interface)
+    except PermissionError:
+        print("Error: Please run the script as an administrator.")
+    except KeyboardInterrupt:
+        print("\nStopping packet sniffer.")
+
